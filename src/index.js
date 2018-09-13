@@ -1,82 +1,90 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
-const fs = require('fs');
+/*
+** @e.g npm run start 文学少女 https://www.wenku8.net/novel/0/1/index.htm
+*/
+
 const path = require('path');
+const book  = require('./modules/book');
+const util = require('./helper/fs');
 
-const NAME = '文学少女';
-const URL = 'https://www.wenku8.net/novel/0/1/index.htm';
-const filePath = path.resolve(__dirname, './../' + NAME);
+const src = path.resolve(__dirname + '/..');
+const params = process.argv.splice(2);
 
-fs.mkdir(__dirname + '/../文学少女1', function(err) {
-	if(err) throw err;
-	console.log('mkdir file');
-	fs.writeFile(path.resolve(__dirname + '/../文学少女/message1.txt'), 'Hello Node.js', (err) => {
-		if (err) throw err;
-		console.log('The file has been saved!');
+const NAME = params[0];
+const URL = params[1];
+
+const dist = path.resolve(src + '/dist/');
+const output = path.resolve(dist + '/' + NAME);
+let count = 0;
+const Home = new book(URL);
+
+const MAX = 5;
+Home
+	.init()
+	.then(() => {
+		Home.getElement('table a');
+		const array = [];
+		Home.list.each(function(index) {
+			const href = Home.doc(this).attr('href');
+			array.push({
+				title: Home.doc(this).text(),
+				href: Home.url.replace(/index.htm/, href),
+				index: index + 1
+			})
+		})
+		return array;
+	})
+	.then((list) => {
+		init(list);
 	});
-})
-return
 
-getHTML(URL)
-.then(res => {
-	return getUrl(res.data)
-})
-.then(list => {
-	return Promise.all(list.map(item => readCtx(item)))
-});
 
-function readCtx(params) {
-	const target = URL.replace(/index.htm/,params.url);
-	return getHTML(target)
-	.then(({data}) => {
-		
+function init(list) {
+	util.createFile(output)
+	.then(() => {
+		checkQueue(list);
+	})
+	.catch(err => {
+		console.log(err)
 	})
 }
 
-function getUrl(doc) {
-	const $ = cheerio.load(doc);
-	const list = $('table a');
-	return list.map(function(index, item) {
-		return {
-			url: $(this).attr('href'),
-			title: $(this).text()
-		}
-	})
-}
-
-function getHTML(url) {
-	return axios.get(url)
-		.then(res => {
-			return res;
+function createSession(obj, length) {
+	const session = new book(obj.href);
+	session
+		.init()
+		.then(() => {
+			session.getElement('#content');
+			const text = session.doc(session.list[0]);
+			util.writeFile({
+				path: (output + '/' + obj.index + '-' + obj.title).trim(),
+				ctx: text.text()
+			})
+			.then(() => {
+				console.log(`${obj.title}---已经完成  剩余: ${length}`);
+				count = count - 1;
+			})
+			.catch(() => {
+				console.log(err);
+				console.log(obj.title + '---下载失败');
+				count = count - 1;
+			})
 		})
 		.catch(err => {
-			console.log('----err----')
-			// console.log(err);
+			console.log(err);
+			console.log(obj.href, obj.title)
 		})
 }
 
-function mkFile(path) {
-	if (checkFile(path)) {
-		
-	}
+function checkQueue(queue) {
+	if (queue.length <= 0) return false;
+	setTimeout(() => {
+		if (count >= 5) {
+			console.log('队列数量:', count);
+		}
+		if (queue.length > 0 && count < MAX) {
+			count = count + 1;
+			createSession(queue.shift(), queue.length);
+		}
+		checkQueue(queue);
+	}, 500)
 }
-
-function checkFile(path) {
-	stat = fs.statSync(path);
-	return stat.isDirectory();
-}
-
-
-fs.mkdir(filePath, function(err) {
-	try{
-		if(err) throw err;
-		console.log('mkdir file');
-		fs.writeFile(path.resolve(__dirname + '/../文学少女/message1.txt'), 'Hello Node.js', (err) => {
-			if (err) throw err;
-			console.log('The file has been saved!');
-		});
-	}catch(err) {
-		console.log('' + filePath)
-
-	}
-})

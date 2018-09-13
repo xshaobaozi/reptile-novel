@@ -10,6 +10,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "cheerio": "^1.0.0-rc.2"
+    "axios": "^0.18.0",
+    "cheerio": "^1.0.0-rc.2",
+    "superagent": "^3.8.3",
+    "superagent-charset": "^1.2.0"
   }
 }
